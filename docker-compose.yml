@@ -33,7 +33,7 @@ services:
       - NEXT_PUBLIC_LANDING_ONLY_MODE=${NEXT_PUBLIC_LANDING_ONLY_MODE:-false}
       - BACKEND_AUTH_SECRET=${BACKEND_AUTH_SECRET}
       - APP_SETTINGS_ENCRYPTION_KEY=${APP_SETTINGS_ENCRYPTION_KEY}
-      - DATABASE_URL=postgresql://supoclip:supoclip_password@postgres:5432/supoclip
+      - DATABASE_URL=${DATABASE_URL}
       - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-supoclip_dev_secret_change_in_production}
       - BETTER_AUTH_URL=${BETTER_AUTH_URL:-http://localhost:3107}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
@@ -59,13 +59,10 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - "SES_FROM_EMAIL=${SES_FROM_EMAIL:-SupoClip <onboarding@example.com>}"
     depends_on:
-      postgres:
-        condition: service_healthy
       backend:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      # Exercise Better Auth and Prisma, not only the static landing page.
       test: ["CMD", "curl", "-f", "http://localhost:3107/api/auth/get-session"]
       interval: 30s
       timeout: 10s
@@ -90,10 +87,10 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql+asyncpg://supoclip:supoclip_password@postgres:5432/supoclip
+      - DATABASE_URL=${DATABASE_URL}
       - TEMP_DIR=/app/uploads
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - ASSEMBLY_AI_API_KEY=${ASSEMBLY_AI_API_KEY}
       - ASSEMBLY_AI_HTTP_TIMEOUT_SECONDS=${ASSEMBLY_AI_HTTP_TIMEOUT_SECONDS:-900}
@@ -158,11 +155,6 @@ services:
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health/db"]
       interval: 30s
@@ -199,7 +191,6 @@ services:
       retries: 5
       start_period: 20s
 
-  # Worker process for background video processing
   worker:
     build:
       context: ./backend
@@ -216,10 +207,10 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=postgresql+asyncpg://supoclip:supoclip_password@postgres:5432/supoclip
+      - DATABASE_URL=${DATABASE_URL}
       - TEMP_DIR=/app/uploads
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - ASSEMBLY_AI_API_KEY=${ASSEMBLY_AI_API_KEY}
       - ASSEMBLY_AI_HTTP_TIMEOUT_SECONDS=${ASSEMBLY_AI_HTTP_TIMEOUT_SECONDS:-900}
@@ -282,70 +273,18 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       backend:
         condition: service_healthy
-
-  # Redis for caching and job queues (useful for video processing)
-  redis:
-    image: redis:7-alpine
-    container_name: supoclip-redis
-    ports:
-      - "127.0.0.1:6379:6379"
-    environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
-    command:
-      [
-        "sh",
-        "-c",
-        "if [ -n \"$${REDIS_PASSWORD}\" ]; then exec docker-entrypoint.sh redis-server --requirepass \"$${REDIS_PASSWORD}\"; fi; exec docker-entrypoint.sh redis-server",
-      ]
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "if [ -n \"$${REDIS_PASSWORD}\" ]; then redis-cli -a \"$${REDIS_PASSWORD}\" ping; else redis-cli ping; fi",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # PostgreSQL database for storing video metadata, user data, etc.
-  postgres:
-    image: postgres:15-alpine
-    container_name: supoclip-postgres
-    environment:
-      POSTGRES_DB: supoclip
-      POSTGRES_USER: supoclip
-      POSTGRES_PASSWORD: supoclip_password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U supoclip -d supoclip"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 volumes:
   uploads:
     driver: local
   clips:
     driver: local
-  redis_data:
-    driver: local
-  postgres_data:
-    driver: local
   mcp_downloads:
     driver: local
 
 networks:
   default:
-    name: supoclip-network
+    name: dokploy-network
+    external: true
