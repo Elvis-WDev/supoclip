@@ -91,6 +91,16 @@ ENV NEXT_PUBLIC_DATAFAST_ALLOW_LOCALHOST=${NEXT_PUBLIC_DATAFAST_ALLOW_LOCALHOST}
 
 RUN pnpm run build
 
+# Pick the Prisma query engine matching the target architecture (see
+# binaryTargets in prisma/schema.prisma) so the runner can pin it below.
+ARG TARGETARCH
+RUN mkdir -p /app/prisma-engine \
+    && case "$TARGETARCH" in \
+         arm64) engine=linux-arm64-openssl-3.0.x ;; \
+         *) engine=debian-openssl-3.0.x ;; \
+       esac \
+    && cp "src/generated/prisma/libquery_engine-$engine.so.node" /app/prisma-engine/libquery_engine.so.node
+
 # Runner stage (for production)
 # Next's standalone output is a Node server, so production only needs Node.
 FROM node:22-bookworm-slim AS runner
@@ -118,10 +128,8 @@ COPY --from=builder /app/prisma ./prisma
 # The production Compose service bind-mounts /app/src for local-development
 # compatibility. Keep the native Prisma engine outside that mount and point
 # Prisma at the immutable copy so authentication cannot lose database access.
-COPY --from=builder --chown=nextjs:nodejs \
-    /app/src/generated/prisma/libquery_engine-debian-openssl-3.0.x.so.node \
-    /app/prisma-engine/libquery_engine-debian-openssl-3.0.x.so.node
-ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/prisma-engine/libquery_engine-debian-openssl-3.0.x.so.node
+COPY --from=builder --chown=nextjs:nodejs /app/prisma-engine /app/prisma-engine
+ENV PRISMA_QUERY_ENGINE_LIBRARY=/app/prisma-engine/libquery_engine.so.node
 
 USER nextjs
 

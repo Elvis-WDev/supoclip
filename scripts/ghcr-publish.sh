@@ -22,7 +22,7 @@ fi
 
 REGISTRY="${REGISTRY:-ghcr.io}"
 OWNER="$(echo "${GHCR_OWNER:-elvis-wdev}" | tr '[:upper:]' '[:lower:]')"
-PLATFORM="${PLATFORM:-linux/amd64}"
+PLATFORM="${PLATFORM:-linux/arm64}"
 REVISION="$(git rev-parse HEAD)"
 TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD)}"
 if [[ -z "${IMAGE_TAG:-}" && -n "$(git status --porcelain -- backend frontend mcp)" ]]; then

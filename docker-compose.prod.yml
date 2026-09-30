@@ -2,6 +2,8 @@
 # server, no source bind mounts). Publish images with scripts/ghcr-publish.sh.
 # Frontend NEXT_PUBLIC_* values are baked into its image at build time.
 # Pin a release with IMAGE_TAG=<git sha>; defaults to latest.
+# DATABASE_URL is the Prisma URL (postgresql://...) for the frontend;
+# BACKEND_DATABASE_URL is the same database as postgresql+asyncpg://...
 
 services:
   frontend:
@@ -60,7 +62,6 @@ services:
     image: ghcr.io/elvis-wdev/supoclip-backend:${IMAGE_TAG:-latest}
     pull_policy: always
     container_name: supoclip-backend
-    platform: linux/amd64
     command: [".venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "127.0.0.1:8000:8000"
@@ -70,7 +71,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${BACKEND_DATABASE_URL}
       - TEMP_DIR=/app/uploads
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT:-6379}
@@ -177,7 +178,6 @@ services:
     image: ghcr.io/elvis-wdev/supoclip-backend:${IMAGE_TAG:-latest}
     pull_policy: always
     container_name: supoclip-worker
-    platform: linux/amd64
     command: [".venv/bin/arq", "src.workers.tasks.WorkerSettings"]
     volumes:
       - uploads:/app/uploads
@@ -185,7 +185,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_URL=${BACKEND_DATABASE_URL}
       - TEMP_DIR=/app/uploads
       - REDIS_HOST=${REDIS_HOST}
       - REDIS_PORT=${REDIS_PORT:-6379}

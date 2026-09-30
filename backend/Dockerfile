@@ -26,8 +26,11 @@ WORKDIR /app
 # Copy pyproject.toml and uv.lock for dependency installation
 COPY pyproject.toml uv.lock* ./
 
-# Create virtual environment and install dependencies using uv sync
-RUN uv venv .venv && uv sync
+# Create virtual environment and install dependencies using uv sync.
+# MediaPipe ships no Linux arm64 wheels; face detection falls back to OpenCV there.
+ARG TARGETARCH
+RUN uv venv .venv \
+    && if [ "$TARGETARCH" = "arm64" ]; then uv sync --no-install-package mediapipe; else uv sync; fi
 
 # Force update yt-dlp to the absolute latest version to handle YouTube API changes
 # Also install from git to get the very latest commits
