@@ -4,14 +4,14 @@
 # Pin a release with IMAGE_TAG=<git sha>; defaults to latest.
 # DATABASE_URL is the Prisma URL (postgresql://...) for the frontend;
 # BACKEND_DATABASE_URL is the same database as postgresql+asyncpg://...
+# No host ports are published: Dokploy domains reach the services through
+# Traefik on dokploy-network (frontend :3107, backend :8000, mcp :9100).
 
 services:
   frontend:
     image: ghcr.io/elvis-wdev/supoclip-frontend:${IMAGE_TAG:-latest}
     pull_policy: always
     container_name: supoclip-frontend
-    ports:
-      - "127.0.0.1:3001:3107"
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
@@ -63,8 +63,6 @@ services:
     pull_policy: always
     container_name: supoclip-backend
     command: [".venv/bin/uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
-    ports:
-      - "127.0.0.1:8000:8000"
     volumes:
       - uploads:/app/uploads
       - clips:/app/clips
@@ -150,8 +148,6 @@ services:
     image: ghcr.io/elvis-wdev/supoclip-mcp:${IMAGE_TAG:-latest}
     pull_policy: always
     container_name: supoclip-mcp
-    ports:
-      - "127.0.0.1:${SUPOCLIP_MCP_PORT:-9100}:9100"
     volumes:
       - mcp_downloads:/app/supoclip-downloads
     environment:
